@@ -87,17 +87,13 @@ class Client {
   setSetupComplete(value) {
     this.setSetupComplete = value;
   }
-  handleOpen() {
-    if (this.port !== 0) {
-      try {
-        this.socket.connect(this.port, this.host);
-      } catch(e) {
-        console.log("Couldn't Attempt Connection");
-      }
-    } else {
-      handlePortEntry();
-    }
+
+  handleClose() {
+    console.log("CLOSING");
+    this.socket.destroy();
   }
+
+  // GET
   handleGet() {
     rl.question("Enter The Filename To Retrieve: ", (value) => {
       if (!value.includes(".txt")) {
@@ -109,6 +105,8 @@ class Client {
       }
     })
   }
+  
+  // PUT
   handlePut() {
     rl.question("Enter The Filename To Transmit: ", (value) => {
       if (!value.includes(".txt")) {
@@ -133,40 +131,91 @@ class Client {
       }
     });
   }
-  handleClose() {
-    console.log("CLOSING");
-    this.socket.destroy();
-  }
-  quitClient() {
-    this.socket.end();
+  
+  // LCD
+  handleLcd(){
+
   }
 
-  handlePwd(){
-    this.socket.write("PWD")
-  }
-
-  handleLs(){
-    this.socket.write("LS")
-  }
-
+  // CD
   handleCd(){
     rl.question("Enter the directory name in which you want to move: ", (value)=>{
       this.socket.write(`CD:${value}`)
     })
   }
 
+  // LS
+  handleLs(){
+    this.socket.write("LS")
+  }
+
+  // DELETE
+  handleDelte(){
+
+  }
+
+  // MPUT
+  handleMput(){
+
+  }
+
+  // MGET
+  handleMget(){
+
+  }
+
+  // RMDIR
+  handleRmdir(){
+
+  }
+
+  // PWD
+  handlePwd(){
+    this.socket.write("PWD")
+  }
+
+  // QUIT CLIENT
+  quitClient() {
+    this.socket.end();
+  }
+
+  // borrar despues
+  handleOpen() {
+    if (this.port !== 0) {
+      try {
+        this.socket.connect(this.port, this.host);
+      } catch(e) {
+        console.log("Couldn't Attempt Connection");
+      }
+    } else {
+      handlePortEntry();
+    }
+  }
+
   mainLoop() {
     // STATE CONTROLLER
     if (this.command !== "") {
       switch (this.command.toLowerCase()) {
-        case ("open"): { this.handleOpen(); break; }
+        case ("close"): { this.handleClose(); break; }
         case ("get"): { this.handleGet(); break; }
         case ("put"): { this.handlePut(); break; }
-        case ("close"): { this.handleClose(); break; }
-        case ("quit"): { this.quitClient(); break; }
-        case ("pwd"): {this.handlePwd();break;}
-        case ("ls"): {this.handleLs();break;}
+        // falta
+        case ("lcd"): {this.handleLcd();break;}
+        // falta
         case ("cd"): {this.handleCd();break;}
+        case ("ls"): {this.handleLs();break;}
+        // falta
+        case ("delete"): {this.handleDelte();break;}
+        // falta
+        case ("mput"): {this.handleMput();break;}
+        // falta
+        case ("mget"): {this.handleMget();break;}
+        // falta
+        case ("rmdir"): {this.handleRmdir();break;}
+        case ("pwd"): {this.handlePwd();break;}
+        case ("quit"): { this.handleQuit(); break; }
+        //borrar despues
+        case ("open"): { this.handleOpen(); break; }
         default: {
           console.log(`The command, "${this.command}", is invalid. Please try again.`);
           handleEnterCommand();
@@ -205,6 +254,8 @@ class Client {
       this.setPort(0);
       this.mainLoop();
     });
+
+    // AQUI VA QUE HACER CON CADA RESPUESTA
     this.socket.on("data", (data) => {
       // TODO : cambiar a swich case
       try {
@@ -223,10 +274,22 @@ class Client {
         } else if(response.type == 'put'){
           // PUT RESPONSE
           console.log(response.data);
+        }  else if (response.type == 'lcd'){
+          // LCD RESPONSE
+        } else if (response.type == 'cd'){
+          // CD RESPONSE
+        } else if (response.type == 'delete'){
+          // DELETE RESPONSE
+        } else if (response.type == 'mput'){
+          // MPUT RESPONSE
+        }  else if (response.type == 'mget'){
+          // MGET RESPONSE
+        } else if (response.type == 'rmdir'){
+          // CD RESPONSE
         } else if(response.type == 'pwd'){
           // PWD RESPONSE
           console.log(response.data)
-        } else if (response.type == 'ls'){
+        }else if (response.type == 'ls'){
           // LS RESPONSE
           // TODO : si el archivo tiene comas en su nombre esto ya valio
           let list = response.data.split(",")
@@ -234,6 +297,7 @@ class Client {
             console.log(file)
           });
         }
+
       } catch (e) { console.log("There was an issue converting the incoming data to utf-8", e) }
       this.setCommand("");
       this.mainLoop();
