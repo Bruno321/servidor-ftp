@@ -1,7 +1,6 @@
 const { Socket } = require('net');
 const readline = require("readline");
 const fs = require('fs');
-
 // TODO : cambiar todos los write a algo menos naco tambien
 var server_path = ''
 
@@ -12,7 +11,7 @@ const rl = readline.createInterface({
 
 // External Handlers
 const handleEnterCommand = () => {
-  rl.question("Enter A Command [OPEN, GET, PUT, CLOSE, QUIT, PWD, LS, CD]: ", (command) => {
+  rl.question("Enter A Command [OPEN, GET, PUT, CLOSE, QUIT, PWD, LS, CD, DELETE, RMDIR, LCD]: ", (command) => {
     client.setCommand(command);
     client.mainLoop();
   })
@@ -52,6 +51,7 @@ const handlePortEntry = () => {
 
 // MAIN CLASS
 class Client {
+  default_lcd_dir = process.cwd().toString() + '\\lcd'
   host = '127.0.0.1';
   port = 0;
   loop = true;
@@ -120,12 +120,12 @@ class Client {
           this.setCommand("");
           this.mainLoop();
         }
-        fs.readFile(value, 'utf8', function (err, data) {
+        fs.readFile(this.default_lcd_dir + "\\" + value, 'utf8', function (err, data) {
           try {
             if (err) throw err;
             transmit(data);
           } catch (e) {
-            console.log(`Error reading file: ${value}`);
+            console.log(`Error reading file: ${value} (maybe is not on LCD directory)`);
             handleError()
           }
         });
@@ -135,14 +135,17 @@ class Client {
   
   // LCD
   handleLcd(){
-
+    // all GET files will be downloaded on this path, and files to upload will be here
+    rl.question("Enter the full path of the dir: [Ej: D:\\sistemas-dis\\FTP-Client-and-Server\\client\\lcd]: " ,(value)=>{
+      this.default_lcd_dir = value
+      this.socket.write(`LCD,${value}`)
+    })
   }
 
   // CD
   handleCd(){
     rl.question("Enter the directory name in which you want to move: ", (value)=>{
       this.socket.write(`CD,${value},${server_path}`)
-      console.log()
     })
   }
 
@@ -153,22 +156,35 @@ class Client {
 
   // DELETE
   handleDelte(){
-
+    rl.question("Enter the name of the file you want to delete [-R to delete a entire directory Ej: -R folder_to_delete]: ", (value)=>{
+      if(value.charAt(0) == '-'){
+        let folderToDelete = value.split(" ")
+        this.socket.write(`DELETE,${folderToDelete}`)
+      } else {
+        this.socket.write(`DELETE,${value}`)
+      }
+    })
   }
 
   // MPUT
   handleMput(){
+    rl.question("Enter the name of the files separated by a comma: ", (value)=>{
 
+    })
   }
 
   // MGET
   handleMget(){
-
+    rl.question("Enter the name of the files separated by a comma: ", (value)=>{
+      
+    })
   }
 
   // RMDIR
   handleRmdir(){
-
+    rl.question("Enter the name of the dir you want to delete [only empty dirs will be deleted]: ", (value)=>{
+      this.socket.write(`RMDIR,${value}`)
+    })
   }
 
   // PWD
@@ -271,7 +287,8 @@ class Client {
             
             const raw_args = response.data
             const args = raw_args.split(":");
-            fs.writeFileSync(args[0], args[1]);
+            console.log(this.default_lcd_dir + "\\" + args[0])
+            fs.writeFileSync(this.default_lcd_dir + "\\" + args[0], args[1]);
             console.log(`Successfully recieved and saved file: ${args[0]}`);
           } catch (e) { console.log("Could not write the incoming file to local file system.") }
         } else if(response.type == 'put'){
@@ -279,17 +296,20 @@ class Client {
           console.log(response.data);
         }  else if (response.type == 'lcd'){
           // LCD RESPONSE
+          console.log(this.default_lcd_dir)
         } else if (response.type == 'cd'){
           // CD RESPONSE
           console.log(response.data)
         } else if (response.type == 'delete'){
           // DELETE RESPONSE
+          console.log(response.data)
         } else if (response.type == 'mput'){
           // MPUT RESPONSE
         }  else if (response.type == 'mget'){
           // MGET RESPONSE
         } else if (response.type == 'rmdir'){
-          // CD RESPONSE
+          // RMDIR RESPONSE
+          console.log(response.data)
         } else if(response.type == 'pwd'){
           // PWD RESPONSE
           console.log(response.data)

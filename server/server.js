@@ -49,6 +49,10 @@ const server = net.createServer((socket) => {
       }
       // LCD
       case("lcd"):{
+        socket.write(JSON.stringify({
+          type: 'lcd',
+          data: 'a'
+        }))
         break;
       }
       // CD
@@ -89,6 +93,41 @@ const server = net.createServer((socket) => {
       }
       // DELETE
       case("delete"):{
+
+        if(args[1]=='-R'){
+          // open file
+          fs.readdir(user_server_path + '\\' + args[1],[],(err,files)=>{
+            files.forEach(file => {
+              // delete files
+              fs.unlink(user_server_path + '\\' + args[1] + '\\' + file,(err)=>{})
+              console.log(file + ' deleted')
+            });
+          })
+          // delete folder
+          fs.rmdir(user_server_path + "\\" + args[1],()=>{
+            socket.write(JSON.stringify({
+              type: 'rmdir',
+              data: 'dir succesfuly deleted'
+            }))
+          })
+        }else{
+          fs.unlink(user_server_path + '\\' + args[1],(err)=>{
+            try {
+              if (err) throw err
+              console.log('succesfully deleted file')
+              socket.write(JSON.stringify({
+                type: 'delete',
+                data: 'succesfully deleted file'
+              }))
+            } catch (e) {
+              console.log('files doest not exist')
+              socket.write(JSON.stringify({
+                type: 'delete',
+                data: 'file doest not exist'
+              }))
+            }
+          })
+        }
         break;
       }
       // MPUT
@@ -101,15 +140,29 @@ const server = net.createServer((socket) => {
       }
       // RMDIR
       case("rmdir"):{
+        fs.readdir(user_server_path + "\\" + args[1] ,[],(err,files)=>{
+          if(files.length > 0){
+            socket.write(JSON.stringify({
+              type: 'rmdir',
+              data: 'The directory isnt empty'
+            }))
+          }else{
+            fs.rmdir(user_server_path + "\\" + args[1],()=>{
+              socket.write(JSON.stringify({
+                type: 'rmdir',
+                data: 'dir succesfuly deleted'
+              }))
+            })
+          }
+        })
         break;
       }
       // PWD
       case ("pwd"):{
         
-        let actual_dir = process.cwd().toString()
         socket.write(JSON.stringify({
           type: 'pwd',
-          data: actual_dir
+          data: user_server_path
         }));
         break;
       }
