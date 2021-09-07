@@ -52,6 +52,8 @@ const handlePortEntry = () => {
 
 // MAIN CLASS
 class Client {
+  name = ''
+  extension = ''
   fileIsAboutToBeRecieved = false
   packets = 0;
   buffer = new Buffer(0);
@@ -91,7 +93,7 @@ class Client {
   writeData(){
     console.log("total packages", this.packets);
 
-    var writeStream = fs.createWriteStream(path.join(__dirname, "out.pdf"),{emitClose:true});
+    var writeStream = fs.createWriteStream(`${this.default_lcd_dir}\\${this.name}.${this.extension}`,{emitClose:true});
     console.log("buffer size", this.buffer.length);
     while(this.buffer.length){
       var head = this.buffer.slice(0, 4);
@@ -155,7 +157,18 @@ class Client {
       // util para lcd
       // this.setCommand("");
       // this.mainLoop();
-      this.socket.write(`GET,${value}`);
+      var extensions_allowed = ['txt','jpg','png','pdf']
+      // si el nombre del archivo lleva puntos ya valio VERGA
+      var splited_fileName = value.split('.')
+      this.name = splited_fileName[0]
+      this.extension = splited_fileName[1]
+      if (extensions_allowed.includes(this.extension)) {
+        this.socket.write(`GET,${value}`);
+      } else {
+        console.log("You have entered an invalid file type. Files must be txt, jpg,png or pdf");
+        this.setCommand("");
+        this.mainLoop();
+      }
       
     })
   }
@@ -346,7 +359,9 @@ class Client {
           this.fileIsAboutToBeRecieved = true
           this.socket.write('r')
           console.log('Sign send, a file is about to being recieved, fileIsAboutToBeRecieved set to: ' ,this.fileIsAboutToBeRecieved.toString())
-        } else if(response.type == 'put'){
+        } else if(response.type == 'get'){
+          console.log(response.data)
+        }else if(response.type == 'put'){
           // PUT RESPONSE
           console.log(response.data);
         }  else if (response.type == 'lcd'){

@@ -17,7 +17,8 @@ function sendFile(client,fileName){
   // ESTO CHI
   var packages = 0;
   var totalBytes = 0;
-  var readStream = fs.createReadStream(actual_dir + '\\' + fileName, {highWaterMark: 16384});
+  console.log(actual_dir + '\\' + fileName)
+  var readStream = fs.createReadStream(user_server_path + '\\' + fileName, {highWaterMark: 16384});
   readStream.on('data', function(chunk){
     packages++;    
     var head = new Buffer("FILE");
@@ -63,13 +64,28 @@ const server = net.createServer((socket) => {
       switch (method.toLowerCase()) {
         // GET
         case ("get"): {
-          fileIsComming = true
           requestedFile = transformed_data[1]
           fileName = requestedFile
-          console.log('A file was requested: ' + requestedFile, ' fileIsComming set to: ' + fileIsComming.toString())
-          socket.write(JSON.stringify({
-            type: 'file_incoming'
-          }))
+          // check that the file exists
+          // get files on dir
+          fs.readdir(user_server_path,[],(err,files)=>{
+            // compare
+            if(files.includes(fileName)){
+              // the file exist
+              fileIsComming = true
+              console.log('A file was requested: ' + requestedFile, ' fileIsComming set to: ' + fileIsComming.toString())
+              socket.write(JSON.stringify({
+                type: 'file_incoming'
+              }))
+            }else{
+              // the file doest not exist
+              socket.write(JSON.stringify({
+                type: 'get',
+                data: 'the file does not exist'
+              }))
+            }
+          })
+          
           break;
         };
         // PUT
@@ -97,8 +113,6 @@ const server = net.createServer((socket) => {
           let acctualPath = transformed_data[2]
           let completePath = `${acctualPath}\\${dirToMove}`
           // checar que el path exista
-          
-          
           fs.readdir(completePath,[],(err,files)=>{
             if(files==undefined){
               socket.write(JSON.stringify({
