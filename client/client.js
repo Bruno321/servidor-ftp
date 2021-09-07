@@ -1,6 +1,7 @@
 const { Socket } = require('net');
 const readline = require("readline");
 const fs = require('fs');
+const path = require('path');
 // TODO : cambiar todos los write a algo menos naco tambien
 var server_path = ''
 
@@ -51,6 +52,9 @@ const handlePortEntry = () => {
 
 // MAIN CLASS
 class Client {
+  fileIsAboutToBeRecieved = false
+  packets = 0;
+  buffer = new Buffer(0);
   default_lcd_dir = process.cwd().toString() + '\\lcd'
   host = '127.0.0.1';
   port = 0;
@@ -78,6 +82,57 @@ class Client {
     console.log(`Welcome to Calham's snazzy FTP client, we will be connecting to host ${this.host}`);
   }
 
+  recibirArchivo(data){
+    this.packets++;
+    console.log(data);
+    this.buffer = Buffer.concat([this.buffer, data]);
+  }
+
+  writeData(){
+    console.log("total packages", this.packets);
+
+    var writeStream = fs.createWriteStream(path.join(__dirname, "out.pdf"),{emitClose:true});
+    console.log("buffer size", this.buffer.length);
+    while(this.buffer.length){
+      var head = this.buffer.slice(0, 4);
+      console.log("head", head.toString());
+      if(head.toString() != "FILE"){
+        // no siempre puede significar error
+        console.log("ERROR!!!!");
+        process.exit(1);
+      }
+      
+      var sizeHex = this.buffer.slice(4, 8);
+      var size = parseInt(sizeHex, 16);
+
+      console.log("size", size);
+
+      var content = this.buffer.slice(8, size + 8);
+      var delimiter = this.buffer.slice(size + 8, size + 9);
+      console.log("delimiter", delimiter.toString());
+      if(delimiter != "@"){
+        console.log("wrong delimiter!!!");
+        process.exit(1);
+      }
+
+      writeStream.write(content);
+      this.buffer = this.buffer.slice(size + 9);
+    }
+
+    setTimeout(function(){
+      writeStream.end();
+    }, 2000);
+
+    writeStream.on('close',()=>{
+      console.log('File saved correctly')
+      this.fileIsAboutToBeRecieved = false
+      console.log('Restarting connection...')
+      // reinicar conexion?  
+      this.socket.connect(3000, "127.0.0.1");
+      this.socket.write('pito')
+    })
+  }
+
   // HANDLERS
   setPort(number) {
     this.port = number;
@@ -97,13 +152,11 @@ class Client {
   // GET
   handleGet() {
     rl.question("Enter The Filename To Retrieve: ", (value) => {
-      if (!value.includes(".txt")) {
-        console.log("You have entered an invalid file type. Files must be of type <filename>.txt");
-        this.setCommand("");
-        this.mainLoop();
-      } else {
-        this.socket.write(`GET,${value}`);
-      }
+      // util para lcd
+      // this.setCommand("");
+      // this.mainLoop();
+      this.socket.write(`GET,${value}`);
+      
     })
   }
   
@@ -277,20 +330,22 @@ class Client {
     // AQUI VA QUE HACER CON CADA RESPUESTA
     this.socket.on("data", (data) => {
       // TODO : cambiar a swich case
-      try {
+      // console.log(data)
+      // client is going to send a file MISSING
+      // server is going to send a file
+      if(this.fileIsAboutToBeRecieved){
+        // recibe file
+        console.log('Recibing file...')
+        this.recibirArchivo(data)
+      } else {
+        // normal communication
         const raw_response = data.toString('utf-8');
         const response = JSON.parse(raw_response)
-        // console.log(response.data)
-        // GET RESPONSE
-        if (response.type == 'get') {
-          try {
-            
-            const raw_args = response.data
-            const args = raw_args.split(":");
-            console.log(this.default_lcd_dir + "\\" + args[0])
-            fs.writeFileSync(this.default_lcd_dir + "\\" + args[0], args[1]);
-            console.log(`Successfully recieved and saved file: ${args[0]}`);
-          } catch (e) { console.log("Could not write the incoming file to local file system.") }
+        
+        if (response.type == 'file_incoming') {
+          this.fileIsAboutToBeRecieved = true
+          this.socket.write('r')
+          console.log('Sign send, a file is about to being recieved, fileIsAboutToBeRecieved set to: ' ,this.fileIsAboutToBeRecieved.toString())
         } else if(response.type == 'put'){
           // PUT RESPONSE
           console.log(response.data);
@@ -323,25 +378,38 @@ class Client {
         } else if (response.type == 'initial_state'){
           server_path = response.data
         }
+      }
 
-      } catch (e) { console.log("There was an issue converting the incoming data to utf-8", e) }
       this.setCommand("");
       this.mainLoop();
     })
+    //   try {
+    //     const raw_response = data.toString('utf-8');
+    //     const response = JSON.parse(raw_response)
+    //     // GET RESPONSE
+
+    //   } catch (e) { console.log("There was an issue converting the incoming data to utf-8", e) }
+    //   this.setCommand("");
+    //   this.mainLoop();
+    // })
     this.socket.on("close", () => {
-      console.log("\n");
-      console.log("CONNECTION ENDED");
-      this.setCommand("");
-      this.setPort(0);
-      this.socket = new Socket();
-      this.setSocketListeners();
-      this.mainLoop();
+
+      // fake closing
+      if(this.fileIsAboutToBeRecieved){
+        this.writeData()
+      } else {
+        // true closing
+        console.log("\n");
+        console.log("CONNECTION ENDED");
+        this.setCommand("");
+        this.setPort(0);
+        this.socket = new Socket();
+        this.setSocketListeners();
+        this.mainLoop();
+      }
+
     })
-    this.socket.on("end", () => {
-      console.log("THANK YOU FOR USING THE SNAZZY SERVER. COME BACK SOME TIME");
-      this.socket.destroy();
-      process.exit();
-    })
+    
   }
 }
 
