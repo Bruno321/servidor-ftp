@@ -102,7 +102,7 @@ class Client {
         this.setCommand("");
         this.mainLoop();
       } else {
-        this.socket.write(`GET:${value}`);
+        this.socket.write(`GET,${value}`);
       }
     })
   }
@@ -114,7 +114,7 @@ class Client {
         console.log("You have entered an invalid file type. Files must be of type <filename>.txt");
       } else {
         const transmit = (data) => {
-          this.socket.write(`PUT:${value}:${data}`);
+          this.socket.write(`PUT,${value},${data}`);
         }
         const handleError = () => {
           this.setCommand("");
@@ -141,7 +141,8 @@ class Client {
   // CD
   handleCd(){
     rl.question("Enter the directory name in which you want to move: ", (value)=>{
-      this.socket.write(`CD:${value}`)
+      this.socket.write(`CD,${value},${server_path}`)
+      console.log()
     })
   }
 
@@ -185,6 +186,7 @@ class Client {
     if (this.port !== 0) {
       try {
         this.socket.connect(this.port, this.host);
+        this.socket.write('initial_state')
       } catch(e) {
         console.log("Couldn't Attempt Connection");
       }
@@ -279,6 +281,7 @@ class Client {
           // LCD RESPONSE
         } else if (response.type == 'cd'){
           // CD RESPONSE
+          console.log(response.data)
         } else if (response.type == 'delete'){
           // DELETE RESPONSE
         } else if (response.type == 'mput'){
@@ -297,6 +300,8 @@ class Client {
           list.forEach(file => {
             console.log(file)
           });
+        } else if (response.type == 'initial_state'){
+          server_path = response.data
         }
 
       } catch (e) { console.log("There was an issue converting the incoming data to utf-8", e) }
