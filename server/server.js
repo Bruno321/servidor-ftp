@@ -10,9 +10,11 @@ const server = net.createServer((socket) => {
   socket.on('data', (buffer) => {
     console.log('Request from', socket.remoteAddress, 'port', socket.remotePort);
     const request = buffer.toString('utf-8');
+    // cambiar a algo menos naco
     const args = request.split(':');
 
     switch (args[0].toLowerCase()) {
+      // GET
       case ("get"): {
         fs.readFile(args[1], 'utf8', function (err, data) {
           try {
@@ -30,6 +32,7 @@ const server = net.createServer((socket) => {
         });
         break;
       };
+      // PUT
       case ("put"): {
         fs.writeFile(args[1], args[2], () => {
           console.log("Successfully Recieved File");
@@ -40,15 +43,15 @@ const server = net.createServer((socket) => {
         });
         break;
       }
-      case ("pwd"):{
-        
-        let actual_dir = process.cwd().toString()
-        socket.write(JSON.stringify({
-          type: 'pwd',
-          data: actual_dir
-        }));
+      // LCD
+      case("lcd"):{
         break;
       }
+      // CD
+      case("cd"):{
+        break;
+      }
+      // LS
       case("ls"): {
         // poner si es direcotirio o archivo
         let actual_dir = process.cwd().toString()
@@ -61,6 +64,33 @@ const server = net.createServer((socket) => {
 
         break;
       }
+      // DELETE
+      case("delete"):{
+        break;
+      }
+      // MPUT
+      case("mput"):{
+        break;
+      }
+      // MGET
+      case("mget"):{
+        break;
+      }
+      // RMDIR
+      case("rmdir"):{
+        break;
+      }
+      // PWD
+      case ("pwd"):{
+        
+        let actual_dir = process.cwd().toString()
+        socket.write(JSON.stringify({
+          type: 'pwd',
+          data: actual_dir
+        }));
+        break;
+      }
+      
     }
   });
   socket.on('end', () => {

@@ -2,6 +2,7 @@ const { Socket } = require('net');
 const readline = require("readline");
 const fs = require('fs');
 
+// TODO : cambiar todos los write a algo menos naco tambien
 var server_path = ''
 
 const rl = readline.createInterface({
