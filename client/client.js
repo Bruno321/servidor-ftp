@@ -2,6 +2,8 @@ const { Socket } = require('net');
 const readline = require("readline");
 const fs = require('fs');
 
+var server_path = ''
+
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
@@ -9,7 +11,7 @@ const rl = readline.createInterface({
 
 // External Handlers
 const handleEnterCommand = () => {
-  rl.question("Enter A Command [OPEN, GET, PUT, CLOSE, QUIT]: ", (command) => {
+  rl.question("Enter A Command [OPEN, GET, PUT, CLOSE, QUIT, PWD, LS, CD]: ", (command) => {
     client.setCommand(command);
     client.mainLoop();
   })
@@ -139,6 +141,19 @@ class Client {
     this.socket.end();
   }
 
+  handlePwd(){
+    this.socket.write("PWD")
+  }
+
+  handleLs(){
+    this.socket.write("LS")
+  }
+
+  handleCd(){
+    rl.question("Enter the directory name in which you want to move: ", (value)=>{
+      this.socket.write(`CD:${value}`)
+    })
+  }
 
   mainLoop() {
     // STATE CONTROLLER
@@ -149,6 +164,9 @@ class Client {
         case ("put"): { this.handlePut(); break; }
         case ("close"): { this.handleClose(); break; }
         case ("quit"): { this.quitClient(); break; }
+        case ("pwd"): {this.handlePwd();break;}
+        case ("ls"): {this.handleLs();break;}
+        case ("cd"): {this.handleCd();break;}
         default: {
           console.log(`The command, "${this.command}", is invalid. Please try again.`);
           handleEnterCommand();
@@ -188,20 +206,35 @@ class Client {
       this.mainLoop();
     });
     this.socket.on("data", (data) => {
+      // TODO : cambiar a swich case
       try {
-        const response = data.toString('utf-8');
+        const raw_response = data.toString('utf-8');
+        const response = JSON.parse(raw_response)
+        // console.log(response.data)
         // GET RESPONSE
-        if (response.includes(":")) {
+        if (response.type == 'get') {
           try {
-            const args = `${data}`.split(":");
+            
+            const raw_args = response.data
+            const args = raw_args.split(":");
             fs.writeFileSync(args[0], args[1]);
             console.log(`Successfully recieved and saved file: ${args[0]}`);
           } catch (e) { console.log("Could not write the incoming file to local file system.") }
-        } else {
+        } else if(response.type == 'put'){
           // PUT RESPONSE
-          console.log(data.toString('utf-8'));
+          console.log(response.data);
+        } else if(response.type == 'pwd'){
+          // PWD RESPONSE
+          console.log(response.data)
+        } else if (response.type == 'ls'){
+          // LS RESPONSE
+          // TODO : si el archivo tiene comas en su nombre esto ya valio
+          let list = response.data.split(",")
+          list.forEach(file => {
+            console.log(file)
+          });
         }
-      } catch (e) { console.log("There was an issue converting the incoming data to utf-8") }
+      } catch (e) { console.log("There was an issue converting the incoming data to utf-8", e) }
       this.setCommand("");
       this.mainLoop();
     })

@@ -18,7 +18,10 @@ const server = net.createServer((socket) => {
           try {
             if (err) throw err;
 
-            socket.write(`${args[1]}:${data}`);
+            socket.write(JSON.stringify({
+              type: 'get',
+              data: `${args[1]}:${data}`
+            }));
             console.log("Successfully Sent File");
           } catch(e) {
             socket.write(`Could not find filename ${args[1]}`);
@@ -30,8 +33,32 @@ const server = net.createServer((socket) => {
       case ("put"): {
         fs.writeFile(args[1], args[2], () => {
           console.log("Successfully Recieved File");
-          socket.write("Successfully Uploaded File");
+          socket.write(JSON.stringify({
+            type: 'put',
+            data: `succesfully uploaded file`
+          }));
         });
+        break;
+      }
+      case ("pwd"):{
+        
+        let actual_dir = process.cwd().toString()
+        socket.write(JSON.stringify({
+          type: 'pwd',
+          data: actual_dir
+        }));
+        break;
+      }
+      case("ls"): {
+        // poner si es direcotirio o archivo
+        let actual_dir = process.cwd().toString()
+        fs.readdir(actual_dir,[],(err,files)=>{
+          socket.write(JSON.stringify({
+            type: 'ls',
+            data: files.toString()
+          }))
+        })
+
         break;
       }
     }
