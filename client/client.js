@@ -97,7 +97,12 @@ class Client {
 
   writeData(){
     console.log("total packages", this.packets);
-
+    if(this.files_to_send.length>0){
+      let splited = this.files_to_send[0].split('.')
+      this.name = splited[0]
+      this.extension = splited[1]
+    }
+    console.log(this.name,this.extension)
     var writeStream = fs.createWriteStream(`${this.default_lcd_dir}\\${this.name}.${this.extension}`,{emitClose:true});
     console.log("buffer size", this.buffer.length);
     while(this.buffer.length){
@@ -132,14 +137,17 @@ class Client {
 
     writeStream.on('close',()=>{
       console.log('File saved correctly')
-      this.fileIsAboutToBeRecieved = false
       console.log('Restarting connection...')
       // reinicar conexion?  
       this.socket.connect(3000, "127.0.0.1");
       // we still need more files
       if(this.files_to_send.length>0){
-        console.log('faltan')
+        this.files_to_send.shift()
+        console.log('faltan', this.files_to_send, this.fileIsAboutToBeRecieved)
         this.socket.write('faltan')
+      }else{
+        console.log('eso es todo we')
+        this.fileIsAboutToBeRecieved = false
       }
     })
   }
@@ -166,11 +174,12 @@ class Client {
     });
   
     readStream.on('close', function(){
-      // cierra la conexion, porq?
-      client.end(); //undefined dice
+      
+      client.end(); 
       console.log("total packages", this.packages);
       console.log("total bytes sent", this.totalBytes);
   
+      
       this.fileIsAboutToBeSend = false
       console.log('file send correctly, fileIsAboutToBeSend set to ' + this.fileIsAboutToBeSend.toString())
     });
@@ -435,7 +444,6 @@ class Client {
         const response = JSON.parse(raw_response)
         if(response.type == 'files_incoming'){
           this.fileIsAboutToBeRecieved = true
-          this.files_to_send.shift()
           this.socket.write(`r`)
           console.log('Sign send, a file is about to being recieved, fileIsAboutToBeRecieved set to: ' ,this.fileIsAboutToBeRecieved.toString())
         }else if (response.type == 'file_incoming') {

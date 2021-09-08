@@ -23,7 +23,7 @@ function sendFile(client,fileName){
   // ESTO CHI
   var packages = 0;
   var totalBytes = 0;
-  console.log(user_server_path + '\\' + fileName)
+  console.log('VERGOTAOTOAOTAO',user_server_path + '\\' + fileName)
   var readStream = fs.createReadStream(user_server_path + '\\' + fileName, {highWaterMark: 16384});
   readStream.on('data', function(chunk){
     packages++;    
@@ -46,7 +46,14 @@ function sendFile(client,fileName){
     console.log("total packages", packages);
     console.log("total bytes sent", totalBytes);
 
-    fileIsAboutToBeSend = false
+    if(requestedFiles.length>0){
+      // se queda
+      requestedFiles.shift()
+      console.log('faltan',requestedFiles,fileIsAboutToBeSend)
+    }else{
+      console.log('eso es todo we')
+      fileIsAboutToBeSend = false
+    }
     console.log('file send correctly, fileIsAboutToBeSend set to ' + fileIsAboutToBeSend.toString())
   });
 
@@ -67,6 +74,9 @@ const server = net.createServer((socket) => {
     // client is about to send a file
     if(fileIsAboutToBeSend){
       console.log('Sign recibied, sending file...')
+      if(requestedFiles.length>0){
+        fileName = requestedFiles[0]
+      }
       sendFile(socket, fileName)
     } else if(fileIsAboutToBeRecieved){
       console.log('Recibing file...')
@@ -193,7 +203,6 @@ const server = net.createServer((socket) => {
           transformed_data.shift()
           requestedFiles = transformed_data
           console.log('files requested: ',requestedFiles)
-          // fileName = requestedFile
           // check that the file exists
           // get files on dir
           fs.readdir(user_server_path,[],(err,files)=>{
@@ -209,7 +218,6 @@ const server = net.createServer((socket) => {
               console.log('Preparing to send file')
               fileIsAboutToBeSend = true
               fileName = requestedFiles[0]
-              requestedFiles.shift()
               socket.write(JSON.stringify({
                 type: 'files_incoming'
               }))
