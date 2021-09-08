@@ -2,6 +2,7 @@ const net = require('net');
 const fs = require('fs');
 var path = require('path');
 var requestedFiles = []
+var files_to_recibe = []
 var fileName = ""
 fileToWriteName = ""
 // var filePath = path.join(__dirname, fileName);
@@ -68,6 +69,10 @@ function recibirArchivo(data){
 function writeData(socket){
   console.log("total packages", packets);
       // write data
+      // console.log(fileToWriteName)
+      if(files_to_recibe.length>0){
+        fileToWriteName = files_to_recibe[0]
+      }
       var writeStream = fs.createWriteStream(user_server_path + '\\' + fileToWriteName,{emitClose:true});
       console.log("buffer size", buffer.length);
       while(buffer.length){
@@ -101,9 +106,17 @@ function writeData(socket){
       }, 2000);
 
       writeStream.on('close',()=>{
-        console.log('File saved correctly')
-        fileIsAboutToBeRecieved = false
+        console.log('File saved correctly',files_to_recibe)
         // es necesario?
+
+        if(files_to_recibe.length>0){
+          console.log('pending files')
+          files_to_recibe.shift()
+          socket.write('r')
+        }else{
+          console.log('finished')
+          fileIsAboutToBeRecieved = false
+        }
         // socket.write('pito')
       })
 }
@@ -216,15 +229,15 @@ const server = net.createServer((socket) => {
         // DELETE
         case("delete"):{
   
-          if(args[1]=='-R'){
-            fs.rm(user_server_path + '\\' + args[2],{recursive:true, force:true},()=>{
+          if(transformed_data[1]=='-R'){
+            fs.rm(user_server_path + '\\' + transformed_data[2],{recursive:true, force:true},()=>{
               socket.write(JSON.stringify({
                 type: 'delete',
                 data: 'dir succesfully deleted'
               }))
             })
           }else{
-            fs.unlink(user_server_path + '\\' + args[1],(err)=>{
+            fs.unlink(user_server_path + '\\' + transformed_data[1],(err)=>{
               try {
                 if (err) throw err
                 console.log('succesfully deleted file')
@@ -245,6 +258,12 @@ const server = net.createServer((socket) => {
         }
         // MPUT
         case("mput"):{
+          fileIsAboutToBeRecieved = true
+          transformed_data.shift()
+          files_to_recibe = transformed_data
+          // files_to_recibe.shift()
+          console.log(files_to_recibe)
+          socket.write('r')
           break;
         }
         // MGET
@@ -283,14 +302,14 @@ const server = net.createServer((socket) => {
         }
         // RMDIR
         case("rmdir"):{
-          fs.readdir(user_server_path + "\\" + args[1] ,[],(err,files)=>{
+          fs.readdir(user_server_path + "\\" + transformed_data[1] ,[],(err,files)=>{
             if(files.length > 0){
               socket.write(JSON.stringify({
                 type: 'rmdir',
                 data: 'The directory isnt empty'
               }))
             }else{
-              fs.rmdir(user_server_path + "\\" + args[1],()=>{
+              fs.rmdir(user_server_path + "\\" + transformed_data[1],()=>{
                 socket.write(JSON.stringify({
                   type: 'rmdir',
                   data: 'dir succesfuly deleted'

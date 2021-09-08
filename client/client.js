@@ -52,7 +52,10 @@ const handlePortEntry = () => {
 
 // MAIN CLASS
 class Client {
+  // camibar a files_to_recieebe
   files_to_send = []
+  // cambiar a files_to_send
+  files_to_reciebe = []
   packages = 0
   totalBytes = 0
   name = ''
@@ -297,7 +300,47 @@ class Client {
   // MPUT
   handleMput(){
     rl.question("Enter the name of the files separated by a comma: ", (value)=>{
-      
+      console.log(value)
+      this.files_to_reciebe = value.split(',')
+      let extensions_allowed = ['txt','jpg','png','pdf']
+      // si el nombre del archivo lleva puntos ya valio VERGA
+      let extensionsCheck = 0
+      this.files_to_reciebe.forEach((file)=>{
+        if(extensions_allowed.includes(file.split('.')[1])){
+          extensionsCheck++
+        }
+      })
+      let filesCheck = 0
+      // checar qie exista en LCD
+      if(extensionsCheck===this.files_to_reciebe.length){
+        fs.readdir(this.default_lcd_dir,(err,files)=>{
+
+          this.files_to_reciebe.forEach((file)=>{
+            if(files.includes(file)){
+              // existe
+              filesCheck++
+            }
+          })
+          if(filesCheck==this.files_to_reciebe.length){
+            // exist
+            // start the send buffer
+            this.fileIsAboutToBeSend = true
+            // this.fileName = value
+            console.log('fileIsAboutToBeSend set to: ' + this.fileIsAboutToBeSend.toString())
+            console.log(this.files_to_reciebe)
+            this.socket.write(`MPUT,${this.files_to_reciebe}`)
+          } else {
+            // file doest not exist
+            console.log("A file does not exist, or is not on the lcd dir: " + this.default_lcd_dir);
+            this.setCommand("");
+            this.mainLoop();
+          }
+        })
+      } else {
+        console.log("You have entered an invalid file type. Files must be txt, jpg,png or pdf");
+        this.setCommand("");
+        this.mainLoop();
+      }
     })
   }
 
@@ -326,7 +369,7 @@ class Client {
         this.setCommand("");
         this.mainLoop();
       }
-      // this.socket.write(`GET,${value}`);
+     
       
     })
   }
@@ -439,9 +482,17 @@ class Client {
         console.log('Sending file...')
         // no tengo que mandar data, tengo que mandar net.createServer((socket)
         // necesito su analogo de cliente ?
-        this.fileIsAboutToBeSend = false
-        console.log('file send correctly, fileIsAboutToBeSend set to ' + this.fileIsAboutToBeSend.toString()) 
-        this.sendFile(this.socket)
+        console.log(this.files_to_reciebe)
+        if(this.files_to_reciebe.length>0){
+          console.log('sending multiple files')
+          this.fileName = this.files_to_reciebe[0]
+          this.files_to_reciebe.shift()
+          this.sendFile(this.socket)
+        }else{
+          this.fileIsAboutToBeSend = false
+          console.log('file send correctly, fileIsAboutToBeSend set to ' + this.fileIsAboutToBeSend.toString()) 
+          this.sendFile(this.socket)
+        }
       }else {
         // normal communication
         const raw_response = data.toString('utf-8');
