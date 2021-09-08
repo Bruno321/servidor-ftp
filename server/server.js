@@ -2,10 +2,15 @@ const net = require('net');
 const fs = require('fs');
 var path = require('path');
 var fileName = ""
+fileToWriteName = ""
 // var filePath = path.join(__dirname, fileName);
-fileIsComming = false
+fileIsAboutToBeSend = false
+fileIsAboutToBeRecieved = false
 const hostname = '127.0.0.1';
 const port = 3000;
+
+var packets = 0;
+var buffer = new Buffer(0);
 
 // deberia causar problema si varios se conecta a la vez pero equis funciona en  1 caso
 // cambiar a path join?
@@ -40,10 +45,16 @@ function sendFile(client,fileName){
     console.log("total packages", packages);
     console.log("total bytes sent", totalBytes);
 
-    fileIsComming = false
-    console.log('file send correctly, fileIsComming set to ' + fileIsComming.toString())
+    fileIsAboutToBeSend = false
+    console.log('file send correctly, fileIsAboutToBeSend set to ' + fileIsAboutToBeSend.toString())
   });
 
+}
+
+function recibirArchivo(data){
+  packets++;
+  console.log(data);
+  buffer = Buffer.concat([buffer, data]);
 }
 
 const server = net.createServer((socket) => {
@@ -53,10 +64,13 @@ const server = net.createServer((socket) => {
 
     // client is about to recieve a file MISSING
     // client is about to send a file
-    if(fileIsComming){
+    if(fileIsAboutToBeSend){
       console.log('Sign recibied, sending file...')
       sendFile(socket, fileName)
-    } else {
+    } else if(fileIsAboutToBeRecieved){
+      console.log('Recibing file...')
+      recibirArchivo(data)
+    }else {
       // client isnt sending files
       transformed_data = data.toString().split(',')
       method = transformed_data[0]
@@ -72,8 +86,8 @@ const server = net.createServer((socket) => {
             // compare
             if(files.includes(fileName)){
               // the file exist
-              fileIsComming = true
-              console.log('A file was requested: ' + requestedFile, ' fileIsComming set to: ' + fileIsComming.toString())
+              fileIsAboutToBeSend = true
+              console.log('A file was requested: ' + requestedFile, ' fileIsAboutToBeSend set to: ' + fileIsAboutToBeSend.toString())
               socket.write(JSON.stringify({
                 type: 'file_incoming'
               }))
@@ -90,13 +104,10 @@ const server = net.createServer((socket) => {
         };
         // PUT
         case ("put"): {
-          fs.writeFile(user_server_path + "\\" + transformed_data[1], transformed_data[2], () => {
-            console.log("Successfully Recieved File");
-            socket.write(JSON.stringify({
-              type: 'put',
-              data: `succesfully uploaded file`
-            }));
-          });
+          fileToWriteName = transformed_data[1]
+          fileIsAboutToBeRecieved = true
+          console.log('A file is about to be recieved, fileIsAboutToBeRecieved set to: ' + fileIsAboutToBeRecieved.toString())
+          socket.write('r')
           break;
         }
         // LCD
@@ -223,9 +234,63 @@ const server = net.createServer((socket) => {
 
   });
 
-  socket.on('end', () => {
-    console.log('Closed', socket.remoteAddress, 'port', socket.remotePort);
-  });
+  socket.on('close',()=>{
+
+    // fake closing
+    if(fileIsAboutToBeRecieved){
+
+      console.log("total packages", packets);
+      // write data
+      var writeStream = fs.createWriteStream(user_server_path + '\\' + fileToWriteName,{emitClose:true});
+      console.log("buffer size", buffer.length);
+      while(buffer.length){
+        var head = buffer.slice(0, 4);
+        console.log("head", head.toString());
+        if(head.toString() != "FILE"){
+          // no siempre puede significar error
+          console.log("ERROR!!!!");
+          process.exit(1);
+        }
+        
+        var sizeHex = buffer.slice(4, 8);
+        var size = parseInt(sizeHex, 16);
+
+        console.log("size", size);
+
+        var content = buffer.slice(8, size + 8);
+        var delimiter = buffer.slice(size + 8, size + 9);
+        console.log("delimiter", delimiter.toString());
+        if(delimiter != "@"){
+          console.log("wrong delimiter!!!");
+          process.exit(1);
+        }
+
+        writeStream.write(content);
+        buffer = buffer.slice(size + 9);
+      }
+
+      setTimeout(function(){
+        writeStream.end();
+      }, 2000);
+
+      writeStream.on('close',()=>{
+        console.log('File saved correctly')
+        fileIsAboutToBeRecieved = false
+        console.log('Restarting connection...' , ' fileIsAboutToBeRecieved set to ' + fileIsAboutToBeRecieved.toString())
+        // reinicar conexion?  
+        socket.connect(5000, "127.0.0.1");
+        socket.write('pito')
+      })
+    } else {
+      // true closing
+      console.log("\n");
+      console.log("CONNECTION ENDED");
+    }
+  })
+
+  // socket.on('end', () => {
+  //   console.log('Closed', socket.remoteAddress, 'port', socket.remotePort);
+  // });
 });
 
 server.listen(port, hostname, () => {

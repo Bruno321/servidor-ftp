@@ -52,8 +52,12 @@ const handlePortEntry = () => {
 
 // MAIN CLASS
 class Client {
+  packages = 0
+  totalBytes = 0
   name = ''
   extension = ''
+  fileName
+  fileIsAboutToBeSend = false
   fileIsAboutToBeRecieved = false
   packets = 0;
   buffer = new Buffer(0);
@@ -135,6 +139,39 @@ class Client {
     })
   }
 
+  sendFile(client){
+  
+
+    // ESTO CHI
+    var readStream = fs.createReadStream(this.default_lcd_dir + '\\' + this.fileName, {highWaterMark: 16384});
+    readStream.on('data', function(chunk){
+      this.packages++;    
+      var head = new Buffer("FILE");
+      var sizeHex = chunk.length.toString(16);
+      while(sizeHex.length < 4){
+        sizeHex = "0" + sizeHex;
+      }
+      var size = new Buffer(sizeHex);
+      console.log("size", chunk.length, "hex", sizeHex);
+      var delimiter = new Buffer("@");
+      var pack = Buffer.concat([head, size, chunk, delimiter]);
+      this.totalBytes += pack.length;
+      console.log("AAAAAA",this.socket)
+      client.write(pack); 
+    });
+  
+    readStream.on('close', function(){
+      // cierra la conexion, porq?
+      client.end(); //undefined dice
+      console.log("total packages", this.packages);
+      console.log("total bytes sent", this.totalBytes);
+  
+      this.fileIsAboutToBeSend = false
+      console.log('file send correctly, fileIsAboutToBeSend set to ' + this.fileIsAboutToBeSend.toString())
+    });
+   }
+ 
+
   // HANDLERS
   setPort(number) {
     this.port = number;
@@ -175,27 +212,36 @@ class Client {
   
   // PUT
   handlePut() {
+
     rl.question("Enter The Filename To Transmit: ", (value) => {
-      if (!value.includes(".txt")) {
-        console.log("You have entered an invalid file type. Files must be of type <filename>.txt");
-      } else {
-        const transmit = (data) => {
-          this.socket.write(`PUT,${value},${data}`);
-        }
-        const handleError = () => {
-          this.setCommand("");
-          this.mainLoop();
-        }
-        fs.readFile(this.default_lcd_dir + "\\" + value, 'utf8', function (err, data) {
-          try {
-            if (err) throw err;
-            transmit(data);
-          } catch (e) {
-            console.log(`Error reading file: ${value} (maybe is not on LCD directory)`);
-            handleError()
+      var extensions_allowed = ['txt','jpg','png','pdf']
+      // si el nombre del archivo lleva puntos ya valio VERGA
+      var splited_fileName = value.split('.')
+      this.name = splited_fileName[0]
+      this.extension = splited_fileName[1]
+      if (extensions_allowed.includes(this.extension)) {
+        // check the file exist on default_lcd_dir
+        fs.readdir(this.default_lcd_dir,(err,files)=>{
+          if(files.includes(value)){
+            // exist
+            // start the send buffer
+            this.fileIsAboutToBeSend = true
+            this.fileName = value
+            console.log('fileIsAboutToBeSend set to: ' + this.fileIsAboutToBeSend.toString())
+            this.socket.write(`PUT,${value}`)
+          } else {
+            // file doest not exist
+            console.log("The file does not exist, or is not on the lcd dir: " + this.default_lcd_dir);
+            this.setCommand("");
+            this.mainLoop();
           }
-        });
+        })
+      } else {
+        console.log("You have entered an invalid file type. Files must be txt, jpg,png or pdf");
+        this.setCommand("");
+        this.mainLoop();
       }
+      
     });
   }
   
@@ -235,7 +281,7 @@ class Client {
   // MPUT
   handleMput(){
     rl.question("Enter the name of the files separated by a comma: ", (value)=>{
-
+      
     })
   }
 
@@ -350,7 +396,12 @@ class Client {
         // recibe file
         console.log('Recibing file...')
         this.recibirArchivo(data)
-      } else {
+      } else if(this.fileIsAboutToBeSend){
+        console.log('Sending file...')
+        // no tengo que mandar data, tengo que mandar net.createServer((socket)
+        // necesito su analogo de cliente ? 
+        this.sendFile(this.socket)
+      }else {
         // normal communication
         const raw_response = data.toString('utf-8');
         const response = JSON.parse(raw_response)
