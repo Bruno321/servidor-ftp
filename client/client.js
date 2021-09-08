@@ -52,6 +52,7 @@ const handlePortEntry = () => {
 
 // MAIN CLASS
 class Client {
+  files_to_send = []
   packages = 0
   totalBytes = 0
   name = ''
@@ -135,7 +136,11 @@ class Client {
       console.log('Restarting connection...')
       // reinicar conexion?  
       this.socket.connect(3000, "127.0.0.1");
-      this.socket.write('pito')
+      // we still need more files
+      if(this.files_to_send.length>0){
+        console.log('faltan')
+        this.socket.write('faltan')
+      }
     })
   }
 
@@ -202,7 +207,7 @@ class Client {
       if (extensions_allowed.includes(this.extension)) {
         this.socket.write(`GET,${value}`);
       } else {
-        console.log("You have entered an invalid file type. Files must be txt, jpg,png or pdf");
+        console.log("You have entered an invalid file type. Files must be txt, jpg, png or pdf");
         this.setCommand("");
         this.mainLoop();
       }
@@ -288,6 +293,29 @@ class Client {
   // MGET
   handleMget(){
     rl.question("Enter the name of the files separated by a comma: ", (value)=>{
+      let extensions_allowed = ['txt','jpg','png','pdf']
+      // si el nombre del archivo lleva puntos ya valio VERGA
+      let extensionsCheck = 0
+      let splited_files = value.split(',')
+      splited_files.forEach((file)=>{
+        this.files_to_send.push(file)
+      })
+      this.files_to_send.forEach((file)=>{
+        if(extensions_allowed.includes(file.split('.')[1])){
+          extensionsCheck++
+        }
+      })
+      if(extensionsCheck===this.files_to_send.length){
+        this.name = this.files_to_send[0].split('.')[0]
+        this.extension = this.files_to_send[0].split('.')[1]
+        this.socket.write(`MGET,${value}`);
+        console.log('Informing the server that a file is about to be send')
+      } else {
+        console.log("You have entered an invalid file type. Files must be txt, jpg,png or pdf");
+        this.setCommand("");
+        this.mainLoop();
+      }
+      // this.socket.write(`GET,${value}`);
       
     })
   }
@@ -405,8 +433,12 @@ class Client {
         // normal communication
         const raw_response = data.toString('utf-8');
         const response = JSON.parse(raw_response)
-        
-        if (response.type == 'file_incoming') {
+        if(response.type == 'files_incoming'){
+          this.fileIsAboutToBeRecieved = true
+          this.files_to_send.shift()
+          this.socket.write(`r`)
+          console.log('Sign send, a file is about to being recieved, fileIsAboutToBeRecieved set to: ' ,this.fileIsAboutToBeRecieved.toString())
+        }else if (response.type == 'file_incoming') {
           this.fileIsAboutToBeRecieved = true
           this.socket.write('r')
           console.log('Sign send, a file is about to being recieved, fileIsAboutToBeRecieved set to: ' ,this.fileIsAboutToBeRecieved.toString())
@@ -428,6 +460,7 @@ class Client {
           // MPUT RESPONSE
         }  else if (response.type == 'mget'){
           // MGET RESPONSE
+          console.log(response.data)
         } else if (response.type == 'rmdir'){
           // RMDIR RESPONSE
           console.log(response.data)

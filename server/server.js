@@ -1,6 +1,7 @@
 const net = require('net');
 const fs = require('fs');
 var path = require('path');
+var requestedFiles = []
 var fileName = ""
 fileToWriteName = ""
 // var filePath = path.join(__dirname, fileName);
@@ -22,7 +23,7 @@ function sendFile(client,fileName){
   // ESTO CHI
   var packages = 0;
   var totalBytes = 0;
-  console.log(actual_dir + '\\' + fileName)
+  console.log(user_server_path + '\\' + fileName)
   var readStream = fs.createReadStream(user_server_path + '\\' + fileName, {highWaterMark: 16384});
   readStream.on('data', function(chunk){
     packages++;    
@@ -61,7 +62,7 @@ const server = net.createServer((socket) => {
   console.log('Connection from', socket.remoteAddress, 'port', socket.remotePort);
   socket.on('data', (data) => {
     console.log('Request from', socket.remoteAddress, 'port', socket.remotePort );
-
+    console.log(data)
     // client is about to recieve a file MISSING
     // client is about to send a file
     if(fileIsAboutToBeSend){
@@ -188,6 +189,38 @@ const server = net.createServer((socket) => {
         }
         // MGET
         case("mget"):{
+          filesCheck = 0
+          transformed_data.shift()
+          requestedFiles = transformed_data
+          console.log('files requested: ',requestedFiles)
+          // fileName = requestedFile
+          // check that the file exists
+          // get files on dir
+          fs.readdir(user_server_path,[],(err,files)=>{
+            requestedFiles.forEach((file)=>{
+              if(files.includes(file)){
+                // exist
+                filesCheck++
+              }
+            })
+
+            if(filesCheck===requestedFiles.length){
+              // si existe
+              console.log('Preparing to send file')
+              fileIsAboutToBeSend = true
+              fileName = requestedFiles[0]
+              requestedFiles.shift()
+              socket.write(JSON.stringify({
+                type: 'files_incoming'
+              }))
+            }else{
+              console.log('some file dosent exist')
+              socket.write(JSON.stringify({
+                type: 'mget',
+                data: 'some file dosent exist'
+              }))
+            }
+          })
           break;
         }
         // RMDIR
