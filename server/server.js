@@ -65,11 +65,55 @@ function recibirArchivo(data){
   buffer = Buffer.concat([buffer, data]);
 }
 
+function writeData(socket){
+  console.log("total packages", packets);
+      // write data
+      var writeStream = fs.createWriteStream(user_server_path + '\\' + fileToWriteName,{emitClose:true});
+      console.log("buffer size", buffer.length);
+      while(buffer.length){
+        var head = buffer.slice(0, 4);
+        console.log("head", head.toString());
+        if(head.toString() != "FILE"){
+          // no siempre puede significar error
+          console.log("ERROR!!!!");
+          process.exit(1);
+        }
+        
+        var sizeHex = buffer.slice(4, 8);
+        var size = parseInt(sizeHex, 16);
+
+        console.log("size", size);
+
+        var content = buffer.slice(8, size + 8);
+        var delimiter = buffer.slice(size + 8, size + 9);
+        console.log("delimiter", delimiter.toString());
+        if(delimiter != "@"){
+          console.log("wrong delimiter!!!");
+          process.exit(1);
+        }
+
+        writeStream.write(content);
+        buffer = buffer.slice(size + 9);
+      }
+
+      setTimeout(function(){
+        writeStream.end();
+      }, 2000);
+
+      writeStream.on('close',()=>{
+        console.log('File saved correctly')
+        fileIsAboutToBeRecieved = false
+        // es necesario?
+        // socket.write('pito')
+      })
+}
+
+
 const server = net.createServer((socket) => {
   console.log('Connection from', socket.remoteAddress, 'port', socket.remotePort);
   socket.on('data', (data) => {
     console.log('Request from', socket.remoteAddress, 'port', socket.remotePort );
-    console.log(data)
+    
     // client is about to recieve a file MISSING
     // client is about to send a file
     if(fileIsAboutToBeSend){
@@ -79,8 +123,14 @@ const server = net.createServer((socket) => {
       }
       sendFile(socket, fileName)
     } else if(fileIsAboutToBeRecieved){
-      console.log('Recibing file...')
-      recibirArchivo(data)
+      if(data.toString()==='escribe'){
+        // the file was complelty send
+        writeData(socket)
+      }else{
+        // the file is beeing send
+        console.log('Recibing file...')
+        recibirArchivo(data)
+      }
     }else {
       // client isnt sending files
       transformed_data = data.toString().split(',')
@@ -275,53 +325,13 @@ const server = net.createServer((socket) => {
 
   });
 
+
   socket.on('close',()=>{
 
     // fake closing
     if(fileIsAboutToBeRecieved){
-
-      console.log("total packages", packets);
-      // write data
-      var writeStream = fs.createWriteStream(user_server_path + '\\' + fileToWriteName,{emitClose:true});
-      console.log("buffer size", buffer.length);
-      while(buffer.length){
-        var head = buffer.slice(0, 4);
-        console.log("head", head.toString());
-        if(head.toString() != "FILE"){
-          // no siempre puede significar error
-          console.log("ERROR!!!!");
-          process.exit(1);
-        }
-        
-        var sizeHex = buffer.slice(4, 8);
-        var size = parseInt(sizeHex, 16);
-
-        console.log("size", size);
-
-        var content = buffer.slice(8, size + 8);
-        var delimiter = buffer.slice(size + 8, size + 9);
-        console.log("delimiter", delimiter.toString());
-        if(delimiter != "@"){
-          console.log("wrong delimiter!!!");
-          process.exit(1);
-        }
-
-        writeStream.write(content);
-        buffer = buffer.slice(size + 9);
-      }
-
-      setTimeout(function(){
-        writeStream.end();
-      }, 2000);
-
-      writeStream.on('close',()=>{
-        console.log('File saved correctly')
-        fileIsAboutToBeRecieved = false
-        console.log('Restarting connection...' , ' fileIsAboutToBeRecieved set to ' + fileIsAboutToBeRecieved.toString())
-        // reinicar conexion?  
-        socket.connect(5000, "127.0.0.1");
-        socket.write('pito')
-      })
+      // no deberia usarse esto
+      
     } else {
       // true closing
       console.log("\n");
@@ -329,9 +339,9 @@ const server = net.createServer((socket) => {
     }
   })
 
-  // socket.on('end', () => {
-  //   console.log('Closed', socket.remoteAddress, 'port', socket.remotePort);
-  // });
+  socket.on('end', () => {
+    console.log('Closed', socket.remoteAddress, 'port', socket.remotePort);
+  });
 });
 
 server.listen(port, hostname, () => {

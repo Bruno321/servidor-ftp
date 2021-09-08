@@ -175,13 +175,15 @@ class Client {
   
     readStream.on('close', function(){
       
-      client.end(); 
+      // una vez que termine no debemos cerrar conexion, debeos usar algo diferente a
+      // end() y write() para que el server pueda escribir el archivo
+      client.write('escribe'); 
       console.log("total packages", this.packages);
       console.log("total bytes sent", this.totalBytes);
   
-      
-      this.fileIsAboutToBeSend = false
-      console.log('file send correctly, fileIsAboutToBeSend set to ' + this.fileIsAboutToBeSend.toString())
+      // mover?
+      // this.fileIsAboutToBeSend = false
+      // console.log('file send correctly, fileIsAboutToBeSend set to ' + this.fileIsAboutToBeSend.toString())
     });
    }
  
@@ -436,7 +438,9 @@ class Client {
       } else if(this.fileIsAboutToBeSend){
         console.log('Sending file...')
         // no tengo que mandar data, tengo que mandar net.createServer((socket)
-        // necesito su analogo de cliente ? 
+        // necesito su analogo de cliente ?
+        this.fileIsAboutToBeSend = false
+        console.log('file send correctly, fileIsAboutToBeSend set to ' + this.fileIsAboutToBeSend.toString()) 
         this.sendFile(this.socket)
       }else {
         // normal communication
